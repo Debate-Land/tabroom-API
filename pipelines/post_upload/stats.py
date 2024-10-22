@@ -460,7 +460,7 @@ def _update_scoped_stats(job_id: int | None, season: int, circuit: int):
             'tradLosses': trad_record[1],
             'totalSpks': sum(avg_team_speaks),
             'avgSpks': sum(avg_team_speaks)/len(avg_team_speaks) if len(avg_team_speaks) else None,
-            'bids': team_2_bids[result['teamId']],
+            # 'bids': team_2_bids[result['teamId']],
             'spks1HL': speaks_1hl,
             'spks2HL': speaks_2hl,
             'pwp': prelim_wins / (prelim_wins + prelim_losses) if prelim_wins + prelim_losses != 0 else 0,
