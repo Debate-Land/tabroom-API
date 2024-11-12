@@ -1,15 +1,17 @@
 from anthropic import Anthropic
 import json
-import docx
-from typing import List, Dict, TypedDict, Any
+from typing import List, TypedDict, Any
 import re
 import os
 from docx import Document
-from docx.shared import RGBColor
 from docx.oxml.ns import qn
+from pdf2docx import Converter
+import tempfile
 from bs4 import BeautifulSoup
 import html
 import time
+
+client = Anthropic(api_key=os.environ['ANTHROPIC_KEY'])
 
 class Card(TypedDict):
     author: str
@@ -27,7 +29,7 @@ class MetadataEntry(TypedDict):
 
 def extract_formatted_text(file_path: str) -> str:
     """Extract formatted text from Word document, preserving highlighting and structure."""
-    doc = Document(file_path)
+    doc = Document(file_path if file_path.endswith(".docx") else convert_pdf_to_docx(file_path))
     html_content: List[str] = []
 
     for paragraph in doc.paragraphs:
@@ -61,6 +63,19 @@ def extract_formatted_text(file_path: str) -> str:
 
     return '\n'.join(html_content)
 
+def convert_pdf_to_docx(pdf_path: str) -> str:
+    """Convert PDF to DOCX and return the path to the new file"""
+    # Create a temporary file with .docx extension
+    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp_file:
+        docx_path = tmp_file.name
+
+    # Convert PDF to DOCX
+    cv = Converter(pdf_path)
+    cv.convert(docx_path)
+    cv.close()
+
+    return docx_path
+
 def flexible_match(target: str, text: str, threshold: float = 0.8) -> bool:
     """Perform a flexible match between target and text."""
     target_words = target.lower().split()
@@ -69,7 +84,7 @@ def flexible_match(target: str, text: str, threshold: float = 0.8) -> bool:
     matches = sum(1 for word in target_words if word in text_words)
     return matches / len(target_words) >= threshold
 
-def _validate_and_clean_cards(cards_data: Any) -> List[Card]:
+def validate_and_clean_cards(cards_data: Any) -> List[Card]:
     """Clean and validate the extracted cards."""
     cleaned_cards: List[Card] = []
 
@@ -91,7 +106,7 @@ def _validate_and_clean_cards(cards_data: Any) -> List[Card]:
 
     return cleaned_cards
 
-def identify_card_boundaries(client: Anthropic, html_content: str) -> List[Card]:
+def identify_card_boundaries(html_content: str) -> List[Card]:
     """Use Anthropic API to identify card boundaries in HTML content."""
     soup = BeautifulSoup(html_content, 'html.parser')
     text = soup.get_text()
@@ -99,7 +114,7 @@ def identify_card_boundaries(client: Anthropic, html_content: str) -> List[Card]
     print(f"Extracted text length: {len(text)} characters")
     print("Sending request to Anthropic API...")
 
-    prompt = f"""Analyze the following text and identify each distinct evidence card. For each card, extract:
+    prompt = f"""Human: Analyze the following text and identify each distinct evidence card. For each card, extract:
 1. The author's name and year (e.g., "Massey '17")
 2. The exact start of the card content WHICH INCLUDES THE AUTHOR NAME
 3. The exact end of the card content
@@ -127,12 +142,15 @@ Here's the text to analyze:
 {text}
 """
 
-    response = client.completions.create(
-        max_tokens_to_sample=4000,
-        prompt=prompt,
-        model="claude-1"
-    )
-    response_content = response.completion
+    response_content = client.messages.create(
+        max_tokens=4000,
+        messages=[{
+            "role": "user",
+            "content": prompt + "\n\nText to analyze:\n" + text
+        }],
+        model="claude-3-5-sonnet-20241022",
+        stream=False
+    ).content[0].text
 
     match = re.search(r'\[\s*\{.*?\}\s*\]', response_content, re.DOTALL)
     if match:
@@ -142,7 +160,7 @@ Here's the text to analyze:
         except json.JSONDecodeError as e:
             print(f"JSON decoding error: {e}")
             return []
-        cleaned_cards = _validate_and_clean_cards(cards_data)
+        cleaned_cards = validate_and_clean_cards(cards_data)
         if cleaned_cards:
             return cleaned_cards
 
@@ -233,14 +251,16 @@ def clean_card_content(html_content: str, author: str) -> str:
 
     return str(soup)
 
-def process_document(client: Anthropic, file_path: str, output_dir: str) -> None:
+def process_document(file_path: str, output_dir: str) -> None:
     """Process document and save results with HTML content."""
+    os.makedirs(output_dir, exist_ok=True)
+
     # Extract formatted text
     html_content = extract_formatted_text(file_path)
     print(f"Extracted HTML content length: {len(html_content)} characters")
 
     # Identify card boundaries
-    cards = identify_card_boundaries(client, html_content)
+    cards = identify_card_boundaries(html_content)
     print(f"Identified {len(cards)} cards")
 
     for i, card in enumerate(cards):
@@ -269,16 +289,13 @@ def process_document(client: Anthropic, file_path: str, output_dir: str) -> None
         json.dump(metadata, f, indent=2)
     print(f"Created metadata file: metadata.json")
 
-def main():
-    client = Anthropic(api_key=os.environ['ANTHROPIC_KEY'])
-
-    input_file = "/path/to/your/input_file.docx"
-    output_dir = "/path/to/your/output_directory"
-
-    # Create the output directory if it doesn't exist
+def process_directory(input_dir: str, output_dir: str) -> None:
+    """Process all .docx and .pdf files in the directory and its subdirectories."""
     os.makedirs(output_dir, exist_ok=True)
 
-    process_document(client, input_file, output_dir)
-
-if __name__ == "__main__":
-    main()
+    for root, _, files in os.walk(input_dir):
+        for file in files:
+            if file.lower().endswith(('.docx', '.pdf')):
+                file_path = os.path.join(root, file)
+                print(f"Processing file: {file_path}")
+                process_document(file_path, output_dir)
