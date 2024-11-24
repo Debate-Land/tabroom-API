@@ -8,8 +8,10 @@ from docx.oxml.ns import qn
 from pdf2docx import Converter
 import tempfile
 from bs4 import BeautifulSoup
+from shared.const import API_BASE
 import html
 import time
+import requests
 
 client = Anthropic(api_key=os.environ['ANTHROPIC_KEY'])
 
@@ -281,6 +283,12 @@ def process_document(file_path: str, output_dir: str) -> None:
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(f"<html><body>{cleaned_content}</body></html>")
         print(f"Created HTML file: {file_name}")
+        res = requests.post(f"{API_BASE}/cards", json={
+            'html': f"<html><body>{cleaned_content}</body></html>",
+            'text': BeautifulSoup(cleaned_content, 'html.parser').get_text(" "),
+            'author': card['author'],
+            'url': card['url']
+        })
 
     # Write metadata to JSON file
     metadata: List[MetadataEntry] = [{'author': card['author'], 'url': card['url']} for card in cards_with_html]
