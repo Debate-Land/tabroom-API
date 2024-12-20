@@ -130,7 +130,7 @@ def update_all_otrs(job_id: int | None = None):
     teams = requests.get(f"{API_BASE}/teams").json()
 
     for i, team in enumerate(teams):
-        lprint(job_id if i % 250 == 0 else None, "Info", message=f"Updating {i+1}/{len(teams)}")
+        lprint(job_id if i % 500 == 0 else None, "Info", message=f"Updating {i+1}/{len(teams)}")
         update_otrs_for_team(team['id'])
         time.sleep(0.5)
 

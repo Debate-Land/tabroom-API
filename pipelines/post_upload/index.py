@@ -422,7 +422,8 @@ def update_all_indicies(job_id: int | None = None):
     judges = requests.get(f"{API_BASE}/judges").json()
 
     for i, judge in enumerate(judges):
-        lprint(job_id, "Info", message=f"Updating {i+1}/{len(judges)}")
+        if i % 500 == 0:
+            lprint(job_id, "Info", message=f"Updating {i+1}/{len(judges)}")
         update_indicies_for_judge(judge['id'])
 
 def update_indicies(tab_event_id: int):
