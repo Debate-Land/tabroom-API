@@ -92,7 +92,6 @@ async def processTournament(data: ScrapingJobData, id: int | None = None):
             boost = get_tourn_boost(division['firstElimRound'])
         data: TransformedTournamentData = transform_data(id, data['tabTournId'], division['tabEventId'], data['group']['nickname'], division['event'], tournament, entries, list(map(lambda c: c['geographyName'], division['circuits'])),
                               data['season']['year'], boost, division['classification'], division_name, enum_to_string(division['firstElimRound']), enum_to_string(division['tocFullBidLevel']), division['event'] == "PublicForum")
-
         lprint(id, "Info", start, message="Uploading data")
         upload_data(id, data)
         lprint(id, "Info", start, "Updating OTRs")
