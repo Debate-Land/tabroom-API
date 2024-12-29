@@ -8,6 +8,7 @@ from random import random
 from tests.runtime import process_runtime_tests
 requests = CachedSession(expire_after=DO_NOT_CACHE)
 
+
 def clear():
     TABLES = [
         # 'speaking/rounds',
@@ -195,7 +196,12 @@ def upload_data(job_id: int | None, data: TransformedTournamentData):
 
     tournament_res = requests.post(f'{API_BASE}/tournaments/advanced/upsert', json={
         'where': {
-            'tabTournId': tournament['tab_tourn_id']
+            'group': {
+                'nickname': tournament['nickname']
+            },
+            'season': {
+                'year': tournament['year']
+            }
         },
         'create': tournament_body_create,
         'update': tournament_body
@@ -415,7 +421,8 @@ def upload_data(job_id: int | None, data: TransformedTournamentData):
             f'{API_BASE}/results/teams', json=result_body)
 
         if result_res.status_code != 200:
-            team_upload_messages.append(f"Could not upsert team result. {result_res.text}")
+            team_upload_messages.append(
+                f"Could not upsert team result. {result_res.text}")
             # raise TypeError("Invalid API Response. " + message)
         else:
             team_id_to_result_id[result['team_id']] = result_res.json()['id']
@@ -440,7 +447,8 @@ def upload_data(job_id: int | None, data: TransformedTournamentData):
     #  Create all judges and their results
     for result in data['judge_results']:
         if result['judge_id'] in judge_id_to_result_id:
-            lprint(job_id, "Warning", message=f"Already scraped {result['judge_id']}")
+            lprint(job_id, "Warning",
+                   message=f"Already scraped {result['judge_id']}")
             continue
 
         judge_body = {
