@@ -59,7 +59,6 @@ def upload_data(job_id: int | None, data: TransformedTournamentData):
     tournament = data['tournament']
 
     tournament_body = {
-        'tabTournId': tournament['tab_tourn_id'],
         'season': {
             'connectOrCreate': {
                 'where': {
@@ -188,13 +187,17 @@ def upload_data(job_id: int | None, data: TransformedTournamentData):
             }
         }
     }
-    tournament_body_create = tournament_body
-    tournament_body_create['name'] = tournament['name']
-    tournament_body_create['location'] = tournament['location']
-    tournament_body_create['start'] = tournament['start']
-    tournament_body_create['end'] = tournament['end']
 
-    tournament_res = requests.post(f'{API_BASE}/tournaments/advanced/upsert', json={
+    tournament_body_create = {
+        **tournament_body,
+        'tabTournId': tournament['tab_tourn_id'],
+        'name': tournament['name'],
+        'location': tournament['location'],
+        'start': tournament['start'],
+        'end': tournament['end']
+    }
+
+    existing_tournaments = requests.post(f'{API_BASE}/tournaments/advanced/findMany', json={
         'where': {
             'group': {
                 'nickname': tournament['nickname']
@@ -202,10 +205,21 @@ def upload_data(job_id: int | None, data: TransformedTournamentData):
             'season': {
                 'year': tournament['year']
             }
-        },
-        'create': tournament_body_create,
-        'update': tournament_body
-    })
+        }
+    }).json()
+
+    tournament_res = None
+
+    if len(existing_tournaments):
+        tournament_res = requests.post(f'{API_BASE}/tournaments/advanced/update', json={
+            'where': {
+                'id': existing_tournaments[0]['id']
+            },
+            'data': tournament_body
+        })
+    else:
+        tournament_res = requests.post(
+            f'{API_BASE}/tournaments', json=tournament_body_create)
 
     if tournament_res.status_code != 200:
         message = f"Could not upsert tournament. {tournament_res.text}"
