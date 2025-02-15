@@ -23,7 +23,7 @@ def get_round_type(name: str) -> RoundType:
 
     name = name.lower()
 
-    if name[0] == "n":
+    if name[0] == "n" and not name.startswith("not"):
         raise Exception(
             f"Classified {name} as a novice elimination breakout round.")
 

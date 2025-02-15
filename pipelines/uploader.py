@@ -203,14 +203,14 @@ def upload_data(job_id: int | None, data: TransformedTournamentData):
                 'nickname': tournament['nickname']
             },
             'season': {
-                'year': tournament['year']
+                'year': tournament['season']
             }
         }
     }).json()
 
     tournament_res = None
     lprint(job_id, "Info",
-           f"Found {len(existing_tournaments)} matching tournaments.")
+           message=f"Found {len(existing_tournaments)} matching tournaments.")
 
     if len(existing_tournaments):
         tournament_res = requests.post(f'{API_BASE}/tournaments/advanced/update', json={
