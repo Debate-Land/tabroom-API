@@ -69,10 +69,10 @@ def upload_data(job_id: int | None, data: TransformedTournamentData):
                 }
             }
         },
-        'registrationOpens': tournament['registration_opens'],
-        'registrationCloses': tournament['registration_closes'],
-        'feesFrozen': tournament['fees_frozen'],
-        'webname': tournament['webname'],
+        'registrationOpens': tournament['registration_opens'] if 'registration_opens' in tournament else None,
+        'registrationCloses': tournament['registration_closes'] if 'registration_closes' in tournament else None,
+        'feesFrozen': tournament['fees_frozen'] if 'fees_frozen' in tournament else None,
+        'webname': tournament['webname'] if 'webname' in tournament else None,
         'contacts': {
             'connectOrCreate': list(map(
                 lambda c: {
@@ -212,7 +212,7 @@ def upload_data(job_id: int | None, data: TransformedTournamentData):
     lprint(job_id, "Info",
            message=f"Found {len(existing_tournaments)} matching tournaments.")
 
-    if len(existing_tournaments):
+    if len(existing_tournaments) and type(existing_tournaments) == list:
         tournament_res = requests.post(f'{API_BASE}/tournaments/advanced/update', json={
             'where': {
                 'id': existing_tournaments[0]['id']
